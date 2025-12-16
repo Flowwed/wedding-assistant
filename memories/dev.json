@@ -1,0 +1,12 @@
+{
+  "profile": {
+    "name": "Jane"
+  },
+  "wedding": {
+    "country": "London",
+    "city": "Paris",
+    "month": "February",
+    "year": "2026",
+    "guests": 100
+  }
+}

@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Emily · Wedding Assistant</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: #f6f6f6;
+        }
+        #chat {
+            width: 400px;
+            margin: 50px auto;
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+        }
+        input {
+            width: 75%;
+            padding: 8px;
+        }
+        button {
+            padding: 8px;
+        }
+        p {
+            margin: 8px 0;
+        }
+    </style>
+</head>
+<body>
+
+<div id="chat">
+    <div id="messages"></div>
+    <input id="input" placeholder="Type here..." />
+    <button onclick="send()">Send</button>
+</div>
+
+<script>
+const messages = document.getElementById("messages");
+
+// Emily speaks first
+fetch("/chat", {
+    method: "POST",
+    headers: {"Content-Type": "application/json"},
+    body: JSON.stringify({ text: "" })
+})
+.then(res => res.json())
+.then(data => {
+    messages.innerHTML += `<p><strong>Emily:</strong> ${data.reply}</p>`;
+});
+
+function send() {
+    const input = document.getElementById("input");
+    const text = input.value.trim();
+    if (!text) return;
+
+    messages.innerHTML += `<p><strong>You:</strong> ${text}</p>`;
+    input.value = "";
+
+    fetch("/chat", {
+        method: "POST",
+        headers: {"Content-Type": "application/json"},
+        body: JSON.stringify({ text })
+    })
+    .then(res => res.json())
+    .then(data => {
+        messages.innerHTML += `<p><strong>Emily:</strong> ${data.reply}</p>`;
+    });
+}
+</script>
+
+</body>
+</html>
