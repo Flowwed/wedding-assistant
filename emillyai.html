@@ -403,7 +403,8 @@ const siteToken = params.get("t") || "dev";
 const page = params.get("page") || "";
 
 const AI_API =
-  `/chat?token=${encodeURIComponent(siteToken)}` +
+  `https://emily-backend.onrender.com/chat` +
+  `?token=${encodeURIComponent(siteToken)}` +
   `&page=${encodeURIComponent(page)}` +
   `&_=${Date.now()}`;
 
