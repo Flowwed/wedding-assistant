@@ -1,13 +1,22 @@
 from fastapi import FastAPI, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import JSONResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from openai import OpenAI
 import json
 import os
-import re
 from typing import Optional, Dict, List
 
 app = FastAPI()
+
+# ================= CORS =================
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # потом можно ограничить доменом Netlify
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 # ================= OPENAI =================
 client = OpenAI()
@@ -81,35 +90,40 @@ class Message(BaseModel):
     text: Optional[str] = None
 
 # ================= ROUTES =================
-@app.get("/")
-def home():
-    return FileResponse("index.html")
 
 @app.post("/chat")
 def chat(msg: Message, request: Request):
-    token = get_token(request)
-    page = get_page(request)
-    sid = get_session_id(request)
+    try:
+        token = get_token(request)
+        page = get_page(request)
+        sid = get_session_id(request)
 
-    memory = load_memory(token)
-    conv = get_conversation(token, page, sid)
+        memory = load_memory(token)
+        conv = get_conversation(token, page, sid)
 
-    if not msg.text or not msg.text.strip():
-        greeting = returning_greeting(memory) if has_any_memory(memory) else FIRST_GREETING
-        conv.append({"role": "assistant", "content": greeting})
+        if not msg.text or not msg.text.strip():
+            greeting = returning_greeting(memory) if has_any_memory(memory) else FIRST_GREETING
+            conv.append({"role": "assistant", "content": greeting})
+            trim_conversation(conv)
+            return {"reply": greeting}
+
+        text = msg.text.strip()
+        conv.append({"role": "user", "content": text})
+
+        response = client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=conv
+        )
+
+        reply = response.choices[0].message.content.strip()
+        conv.append({"role": "assistant", "content": reply})
         trim_conversation(conv)
-        return {"reply": greeting}
 
-    text = msg.text.strip()
-    conv.append({"role": "user", "content": text})
+        return {"reply": reply}
 
-    response = client.chat.completions.create(
-        model="gpt-4o-mini",
-        messages=conv
-    )
-
-    reply = response.choices[0].message.content.strip()
-    conv.append({"role": "assistant", "content": reply})
-    trim_conversation(conv)
-
-    return {"reply": reply}
+    except Exception as e:
+        print("CHAT ERROR:", e)
+        return JSONResponse(
+            status_code=500,
+            content={"reply": f"ERROR: {e}"}
+        )
