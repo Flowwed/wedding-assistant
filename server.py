@@ -3,16 +3,22 @@ from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from openai import OpenAI
+from supabase import create_client
 import json
 import os
 from typing import Optional, Dict, List
+
+# ================= SUPABASE =================
+SUPABASE_URL = os.environ["SUPABASE_URL"]
+SUPABASE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 app = FastAPI()
 
 # ================= CORS =================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # позже можно сузить до Netlify-домена
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -26,9 +32,6 @@ with open("emily_prompt.txt", "r", encoding="utf-8") as f:
     BASE_PROMPT = f.read()
 
 # ================= MEMORY =================
-MEMORY_DIR = "memories"
-os.makedirs(MEMORY_DIR, exist_ok=True)
-
 def get_token(request: Request) -> str:
     return request.query_params.get("token") or "dev"
 
@@ -39,14 +42,17 @@ def get_page(request: Request) -> str:
 def get_session_id(request: Request) -> str:
     return request.query_params.get("_") or "default"
 
-def memory_path(token: str) -> str:
-    return os.path.join(MEMORY_DIR, f"{token}.json")
-
 def load_memory(token: str) -> dict:
-    if not os.path.exists(memory_path(token)):
+    res = supabase.table("emily_memories").select("data").eq("token", token).single().execute()
+    if not res.data:
         return {"profile": {}, "wedding": {}}
-    with open(memory_path(token), "r", encoding="utf-8") as f:
-        return json.load(f)
+    return res.data["data"]
+
+def save_memory(token: str, memory: dict):
+    supabase.table("emily_memories").upsert({
+        "token": token,
+        "data": memory
+    }).execute()
 
 def has_any_memory(memory: dict) -> bool:
     return bool(memory.get("profile") or memory.get("wedding"))
@@ -99,7 +105,12 @@ def chat(msg: Message, request: Request):
         page = get_page(request)
         sid = get_session_id(request)
 
+        # 1. Load memory from Supabase (or empty)
         memory = load_memory(token)
+
+        # 2. Ensure row exists even if empty
+        save_memory(token, memory)
+
         conv = get_conversation(token, page, sid)
 
         if not msg.text or not msg.text.strip():
