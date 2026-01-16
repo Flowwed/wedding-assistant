@@ -38,8 +38,17 @@
 <script>
 const messages = document.getElementById("messages");
 
+// читаем token и page из URL emillyai
+const params = new URLSearchParams(window.location.search);
+const token =
+  params.get("token") ||
+  params.get("t") ||
+  "";
+const page = params.get("page") || "Entry";
+
+
 // Emily speaks first
-fetch("/chat", {
+fetch(`/chat?token=${encodeURIComponent(token)}&page=${encodeURIComponent(page)}`, {
     method: "POST",
     headers: {"Content-Type": "application/json"},
     body: JSON.stringify({ text: "" })
@@ -57,7 +66,7 @@ function send() {
     messages.innerHTML += `<p><strong>You:</strong> ${text}</p>`;
     input.value = "";
 
-    fetch("/chat", {
+    fetch(`/chat?token=${encodeURIComponent(token)}&page=${encodeURIComponent(page)}`, {
         method: "POST",
         headers: {"Content-Type": "application/json"},
         body: JSON.stringify({ text })

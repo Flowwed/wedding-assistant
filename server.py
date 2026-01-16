@@ -2,7 +2,6 @@ from fastapi import FastAPI, Request
 from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from openai import OpenAI
-from supabase import create_client
 import json
 import os
 import re
@@ -12,20 +11,6 @@ app = FastAPI()
 
 # ================= OPENAI =================
 client = OpenAI()
-
-# ================= SUPABASE =================
-SUPABASE_URL = os.getenv("SUPABASE_URL")
-SUPABASE_KEY = os.getenv("SUPABASE_SERVICE_KEY")
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
-
-def save_message(token: str, page: str, sid: str, role: str, content: str):
-    supabase.table("messages").insert({
-        "token": token,
-        "page": page,
-        "sid": sid,
-        "role": role,
-        "content": content
-    }).execute()
 
 # ================= PROMPT =================
 with open("emily_prompt.txt", "r", encoding="utf-8") as f:
@@ -112,13 +97,11 @@ def chat(msg: Message, request: Request):
     if not msg.text or not msg.text.strip():
         greeting = returning_greeting(memory) if has_any_memory(memory) else FIRST_GREETING
         conv.append({"role": "assistant", "content": greeting})
-        save_message(token, page, sid, "assistant", greeting)
         trim_conversation(conv)
         return {"reply": greeting}
 
     text = msg.text.strip()
     conv.append({"role": "user", "content": text})
-    save_message(token, page, sid, "user", text)
 
     response = client.chat.completions.create(
         model="gpt-4o-mini",
@@ -127,7 +110,6 @@ def chat(msg: Message, request: Request):
 
     reply = response.choices[0].message.content.strip()
     conv.append({"role": "assistant", "content": reply})
-    save_message(token, page, sid, "assistant", reply)
     trim_conversation(conv)
 
     return {"reply": reply}
