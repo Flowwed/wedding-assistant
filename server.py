@@ -12,7 +12,7 @@ app = FastAPI()
 # ================= CORS =================
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # потом можно ограничить доменом Netlify
+    allow_origins=["*"],  # позже можно сузить до Netlify-домена
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -34,8 +34,7 @@ def get_token(request: Request) -> str:
 
 def get_page(request: Request) -> str:
     page = request.query_params.get("page") or ""
-    page = page.strip()
-    return page if page else "Entry"
+    return page.strip() or "Entry"
 
 def get_session_id(request: Request) -> str:
     return request.query_params.get("_") or "default"
@@ -73,7 +72,6 @@ def trim_conversation(conv: List[dict], max_messages: int = 40):
 FIRST_GREETING = (
     "Hi — I’m Emily.\n"
     "I’m here to help you plan your wedding.\n"
-    "And if you’d like, I can also walk you through how everything works inside FloWWed Studio.\n"
     "We can start whenever you’re ready."
 )
 
@@ -90,6 +88,9 @@ class Message(BaseModel):
     text: Optional[str] = None
 
 # ================= ROUTES =================
+@app.get("/")
+def root():
+    return {"status": "ok"}
 
 @app.post("/chat")
 def chat(msg: Message, request: Request):
@@ -125,5 +126,5 @@ def chat(msg: Message, request: Request):
         print("CHAT ERROR:", e)
         return JSONResponse(
             status_code=500,
-            content={"reply": f"ERROR: {e}"}
+            content={"reply": "Backend error"}
         )
