@@ -66,11 +66,18 @@ def merge(a, b):
 # ================= CONVERSATIONS =================
 conversations: Dict[str, List[dict]] = {}
 
-def get_conversation(token: str, page: str, sid: str) -> List[dict]:
+def get_conversation(token: str, page: str, sid: str, memory: dict) -> List[dict]:
     key = f"{token}:{page}:{sid}"
+
     if key not in conversations:
         page_context = f"\n\nThe user is currently on the '{page}' page of FloWWed Studio."
-        conversations[key] = [{"role": "system", "content": BASE_PROMPT + page_context}]
+        memory_context = f"\n\nKnown user memory:\n{json.dumps(memory, ensure_ascii=False, indent=2)}"
+        system_prompt = BASE_PROMPT + page_context + memory_context
+
+        conversations[key] = [
+            {"role": "system", "content": system_prompt}
+        ]
+
     return conversations[key]
 
 def trim(conv: List[dict], max_messages: int = 40):
@@ -108,7 +115,8 @@ def chat(msg: Message, request: Request):
         sid = get_session_id(request)
 
         memory = load_memory(token)
-        conv = get_conversation(token, page, sid)
+        conv = get_conversation(token, page, sid, memory)
+
 
         if not msg.text or not msg.text.strip():
             greeting = returning_greeting(memory) if has_any_memory(memory) else FIRST_GREETING
