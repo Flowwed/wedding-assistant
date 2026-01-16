@@ -1,21 +1,17 @@
+import os
+import json
+from typing import Optional, Dict, List
+
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from openai import OpenAI
-from supabase import create_client
-import json
-import os
-from typing import Optional, Dict, List
 
-# ================= SUPABASE =================
-SUPABASE_URL = os.environ["SUPABASE_URL"]
-SUPABASE_KEY = os.environ["SUPABASE_SERVICE_KEY"]
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+# ================= INIT =================
 
 app = FastAPI()
 
-# ================= CORS =================
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -24,14 +20,40 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ================= OPENAI =================
 client = OpenAI()
 
 # ================= PROMPT =================
-with open("emily_prompt.txt", "r", encoding="utf-8") as f:
-    BASE_PROMPT = f.read()
 
-# ================= MEMORY =================
+BASE_PROMPT = ""
+try:
+    with open("emily_prompt.txt", "r", encoding="utf-8") as f:
+        BASE_PROMPT = f.read()
+except:
+    BASE_PROMPT = "You are Emily, a warm wedding planning assistant."
+
+# ================= MEMORY (LOCAL) =================
+
+MEMORY_DIR = "memories"
+os.makedirs(MEMORY_DIR, exist_ok=True)
+
+def memory_path(token: str) -> str:
+    return os.path.join(MEMORY_DIR, f"{token}.json")
+
+def load_memory(token: str) -> dict:
+    if not os.path.exists(memory_path(token)):
+        return {"profile": {}, "wedding": {}}
+    with open(memory_path(token), "r", encoding="utf-8") as f:
+        return json.load(f)
+
+def save_memory(token: str, data: dict):
+    with open(memory_path(token), "w", encoding="utf-8") as f:
+        json.dump(data, f, ensure_ascii=False, indent=2)
+
+def has_any_memory(memory: dict) -> bool:
+    return bool(memory.get("profile") or memory.get("wedding"))
+
+# ================= HELPERS =================
+
 def get_token(request: Request) -> str:
     return request.query_params.get("token") or "dev"
 
@@ -42,22 +64,8 @@ def get_page(request: Request) -> str:
 def get_session_id(request: Request) -> str:
     return request.query_params.get("_") or "default"
 
-def load_memory(token: str) -> dict:
-    res = supabase.table("emily_memories").select("data").eq("token", token).single().execute()
-    if not res.data:
-        return {"profile": {}, "wedding": {}}
-    return res.data["data"]
-
-def save_memory(token: str, memory: dict):
-    supabase.table("emily_memories").upsert({
-        "token": token,
-        "data": memory
-    }).execute()
-
-def has_any_memory(memory: dict) -> bool:
-    return bool(memory.get("profile") or memory.get("wedding"))
-
 # ================= CONVERSATIONS =================
+
 conversations: Dict[str, List[dict]] = {}
 
 def get_conversation(token: str, page: str, sid: str) -> List[dict]:
@@ -75,6 +83,7 @@ def trim_conversation(conv: List[dict], max_messages: int = 40):
         conv[:] = [conv[0]] + conv[-(max_messages - 1):]
 
 # ================= GREETINGS =================
+
 FIRST_GREETING = (
     "Hi — I’m Emily.\n"
     "I’m here to help you plan your wedding.\n"
@@ -90,10 +99,12 @@ def returning_greeting(memory: dict) -> str:
     return greeting
 
 # ================= MODEL =================
+
 class Message(BaseModel):
     text: Optional[str] = None
 
 # ================= ROUTES =================
+
 @app.get("/")
 def root():
     return {"status": "ok"}
@@ -105,12 +116,7 @@ def chat(msg: Message, request: Request):
         page = get_page(request)
         sid = get_session_id(request)
 
-        # 1. Load memory from Supabase (or empty)
         memory = load_memory(token)
-
-        # 2. Ensure row exists even if empty
-        save_memory(token, memory)
-
         conv = get_conversation(token, page, sid)
 
         if not msg.text or not msg.text.strip():
