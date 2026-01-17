@@ -117,7 +117,6 @@ def chat(msg: Message, request: Request):
         memory = load_memory(token)
         conv = get_conversation(token, page, sid, memory)
 
-
         if not msg.text or not msg.text.strip():
             greeting = returning_greeting(memory) if has_any_memory(memory) else FIRST_GREETING
             conv.append({"role": "assistant", "content": greeting})
@@ -137,8 +136,12 @@ def chat(msg: Message, request: Request):
         trim(conv)
 
         # ===== MEMORY EXTRACTION =====
-memory_prompt = f"""
-Extract any facts about the user or their wedding.
+        memory_prompt = f"""
+Extract any facts about the *user or their wedding*.
+Never treat the assistant’s name as user data.
+Do NOT extract names from labels like "Emily", "Assistant", or role names.
+Only extract facts that clearly belong to the human user or their partner.
+
 Return ONLY valid JSON in this format:
 
 {{
