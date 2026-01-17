@@ -157,8 +157,9 @@ Return ONLY valid JSON in this format:
   }}
 }}
 
-User message:
-{text}
+Conversation:
+User said: {text}
+Assistant replied: {reply}
 """
 
         mem_resp = client.chat.completions.create(
