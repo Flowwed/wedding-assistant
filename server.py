@@ -137,7 +137,7 @@ def chat(msg: Message, request: Request):
         trim(conv)
 
         # ===== MEMORY EXTRACTION =====
-        memory_prompt = f"""
+memory_prompt = f"""
 Extract any facts about the user or their wedding.
 Return ONLY valid JSON in this format:
 
@@ -157,9 +157,8 @@ Return ONLY valid JSON in this format:
   }}
 }}
 
-Conversation:
-User: {text}
-Emily: {reply}
+User message:
+{text}
 """
 
         mem_resp = client.chat.completions.create(
